@@ -5,12 +5,28 @@
  */
 package request;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
+import java.io.StringReader;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import org.w3c.dom.DOMException;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 /**
  *
@@ -47,7 +63,14 @@ public class HTTPRequest extends HttpServlet {
             doGet(req, resp);
         } else if (method.equals(METHOD_POST)) 
         {
-            doPost(req, resp);
+            try {
+                //doPost(req, resp);
+                doMkcalendar(req,resp);
+            } catch (ParserConfigurationException ex) {
+                Logger.getLogger(HTTPRequest.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SAXException ex) {
+                Logger.getLogger(HTTPRequest.class.getName()).log(Level.SEVERE, null, ex);
+            }
         } else if (method.equals(METHOD_PUT)) 
         {
             doPut(req, resp);
@@ -77,7 +100,13 @@ public class HTTPRequest extends HttpServlet {
         } else if(method.equals(METHOD_UNLOCK)){
             doUnlock(req,resp);
         } else if(method.equals(METHOD_MKCALENDAR)){
-            doMkcalendar(req,resp);
+            try {
+                doMkcalendar(req,resp);
+            } catch (ParserConfigurationException ex) {
+                Logger.getLogger(HTTPRequest.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SAXException ex) {
+                Logger.getLogger(HTTPRequest.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
         else
         {
@@ -143,6 +172,11 @@ public class HTTPRequest extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        
+        String uri = request.getRequestURI().substring(request.getContextPath().length());
+        String[] path = uri.split("/");
+        for(int i=0; i < path.length;i++)
+            response.getWriter().println(path[i]);
         processRequest(request, response);
     }
     
@@ -214,8 +248,71 @@ public class HTTPRequest extends HttpServlet {
     }
     
     protected void doMkcalendar(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        processRequest(request, response);
+            throws ServletException, IOException, ParserConfigurationException, SAXException{
+        String uri = request.getRequestURI().substring(request.getContextPath().length());
+        String[] path = uri.split("/");
+
+        String xml = null;
+        try { 
+                BufferedReader reader = request.getReader(); //gets XML payload
+                xml ="";
+                String line="";
+                while((line=reader.readLine())!=null)
+                {
+                    xml+=line;
+                }
+                response.getWriter().println(xml);
+        } catch (IOException ioe) {
+        }
+        response.getWriter().println(xml);
+        response.getWriter().println("");
+        response.getWriter().println("");
+        response.getWriter().println("");
+        
+        /********** TEST STRING TO XML **************/
+        
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilder db = null;
+        Document doc=null;
+        try {
+            db = dbf.newDocumentBuilder();
+            InputSource is = new InputSource();
+            is.setCharacterStream(new StringReader(xml));
+            try {
+                doc = db.parse(is);
+                String message = doc.getDocumentElement().getTextContent();
+                //response.getWriter().println(message);
+            } catch (SAXException e) {
+                // handle SAXException
+            } catch (IOException e) {
+                // handle IOException
+            }
+        } catch (ParserConfigurationException e1) {
+            // handle ParserConfigurationException
+        }
+        
+        NodeList calDescr = doc.getElementsByTagName("C:calendar-description");
+        for(int i = 0; i < calDescr.getLength();i++){
+            Node tmp = calDescr.item(i);
+            response.getWriter().println(tmp.getNodeName()+" "+tmp.getTextContent());
+        }
+        
+        NodeList calComp = doc.getElementsByTagName("C:comp");
+        for(int i = 0; i < calComp.getLength();i++){
+            Node tmp = calComp.item(i);
+            response.getWriter().println(tmp.getNodeName()+" "+tmp.getAttributes().getNamedItem("name").getTextContent());
+        }
+        
+        /********************************************/
+        
+        
+        response.getWriter().println("");
+        response.getWriter().println("");
+        response.getWriter().println("");
+        for (String path1 : path) {
+            response.getWriter().println(path1);
+            //processRequest(request, response);
+        }
     }
 
     /**
